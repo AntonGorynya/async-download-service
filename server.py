@@ -9,12 +9,13 @@ INTERVAL_SECS = 1
 async def archive(request):
     chunk_size = 100
     archive_hash = request.match_info.get('archive_hash')
-    command = ['zip','-jr', '-', f'test_photos/{archive_hash}/']
+    command = ['zip','-r', '-', '.']
 
     proc = await asyncio.create_subprocess_exec(
         *command,
         stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE)
+        stderr=asyncio.subprocess.PIPE,
+        cwd=f'test_photos/{archive_hash}/')
 
 
     response = web.StreamResponse()

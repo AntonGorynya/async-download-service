@@ -3,7 +3,13 @@ import aiofiles
 import asyncio
 import logging
 import os
+import signal
 
+
+def signal_handler():    
+    logging.debug(f'Received SIGINT, exiting...')    
+    loop.stop()
+    raise KeyboardInterrupt
 
 async def archive(request):
     chunk_size = 1*1024 # 1KB
@@ -20,7 +26,7 @@ async def archive(request):
         *command,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        cwd=cwd)
+        cwd=cwd)    
 
     response = web.StreamResponse()
     response.headers['Content-Type'] = 'text/html'
@@ -29,17 +35,26 @@ async def archive(request):
     await response.prepare(request)
 
     try:
-        async with ClientSession(timeout=1) as session:
+        async with ClientSession() as session:
             while True:
                 logging.debug('Sending archive chunk ...')
                 part = await proc.stdout.read(chunk_size)
-                await asyncio.sleep(3)
+                await asyncio.sleep(3)                
                 if not part:
                     logging.debug('EOF')
                     break
                 await response.write(part)
     except asyncio.exceptions.CancelledError as e:
         logging.debug('Download was interrupted')
+        proc.kill()
+    except ConnectionResetError:
+        logging.debug('Download was interrupted')
+        proc.kill()
+    except SystemExit as e:
+        logging.debug('SystemExit exception')
+        proc.kill()
+    except LookupError:
+        logging.debug('LookupError exception')
         proc.kill()
 
     return response
@@ -53,9 +68,20 @@ async def handle_index_page(request):
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
+    loop = asyncio.get_event_loop()
+    loop.add_signal_handler(signal.SIGINT, signal_handler)    
     app = web.Application()
     app.add_routes([
         web.get('/', handle_index_page),
         web.get('/archive/{archive_hash}/', archive),
-    ])
-    web.run_app(app)
+    ]) 
+    
+    runner = web.AppRunner(app)
+    loop.run_until_complete(runner.setup())
+    
+    site = web.TCPSite(runner, '10.176.46.31', 8080)
+    loop.run_until_complete(site.start())
+    
+    #web.run_app(app)
+    loop.run_forever()    
+   

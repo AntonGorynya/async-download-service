@@ -1,5 +1,7 @@
-from aiohttp import web, ClientSession, ClientConnectionError
+from aiohttp import web, ClientSession
+from functools import partial
 import aiofiles
+import argparse
 import asyncio
 import logging
 import os
@@ -11,11 +13,12 @@ def signal_handler():
     loop.stop()
     raise KeyboardInterrupt
 
-async def archive(request):
-    chunk_size = 1*1024 # 1KB
+
+async def archive(request, path='test_photos', delay=0):
+    chunk_size = 1*1024  # 1KB
     archive_hash = request.match_info.get('archive_hash')
-    command = ['zip','-r', '-', '.']
-    cwd = os.path.join('test_photos', archive_hash)
+    command = ['zip', '-r', '-', '.']
+    cwd = os.path.join(path, archive_hash)
 
     if not os.path.exists(cwd):
         logging.debug('Archive dont exist')
@@ -39,7 +42,8 @@ async def archive(request):
             while True:
                 logging.debug('Sending archive chunk ...')
                 part = await proc.stdout.read(chunk_size)
-                await asyncio.sleep(3)                
+                if delay:
+                    await asyncio.sleep(delay)
                 if not part:
                     logging.debug('EOF')
                     break
@@ -50,7 +54,7 @@ async def archive(request):
     except ConnectionResetError:
         logging.debug('Download was interrupted')
         proc.kill()
-    except SystemExit as e:
+    except SystemExit:
         logging.debug('SystemExit exception')
         proc.kill()
     except LookupError:
@@ -66,22 +70,33 @@ async def handle_index_page(request):
     return web.Response(text=index_contents, content_type='text/html')
 
 
+def create_parser():
+    parser = argparse.ArgumentParser(description='async download server')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Enable Debug')
+    parser.add_argument('-d', '--delay', default=0, help='set delay')
+    parser.add_argument('-f', '--folder', default='test_photos', help='path to image folder')
+    parser.add_argument('-i', '--ip', default='127.0.0.1', help='server IP')
+    parser.add_argument('-p', '--port', default='8080', help='server port IP')
+    return parser
+
+
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
+    parser = create_parser()
+    args = parser.parse_args()
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
     loop = asyncio.get_event_loop()
     loop.add_signal_handler(signal.SIGINT, signal_handler)    
     app = web.Application()
     app.add_routes([
         web.get('/', handle_index_page),
-        web.get('/archive/{archive_hash}/', archive),
+        web.get('/archive/{archive_hash}/', partial(archive, delay=args.delay, path=args.folder)),
     ]) 
     
     runner = web.AppRunner(app)
     loop.run_until_complete(runner.setup())
     
-    site = web.TCPSite(runner, '10.176.46.31', 8080)
+    site = web.TCPSite(runner, args.ip, args.port)
     loop.run_until_complete(site.start())
-    
-    #web.run_app(app)
     loop.run_forever()    
    

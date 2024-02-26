@@ -73,10 +73,10 @@ async def handle_index_page(request):
 def create_parser():
     parser = argparse.ArgumentParser(description='async download server')
     parser.add_argument('-v', '--verbose', action='store_true', help='Enable Debug')
-    parser.add_argument('-d', '--delay', default=0, help='set delay')
-    parser.add_argument('-f', '--folder', default='test_photos', help='path to image folder')
-    parser.add_argument('-i', '--ip', default='127.0.0.1', help='server IP')
-    parser.add_argument('-p', '--port', default='8080', help='server port IP')
+    parser.add_argument('-d', '--delay', default=0, type=int, help='set delay')
+    parser.add_argument('-f', '--folder', default='test_photos', type=str, help='path to image folder')
+    parser.add_argument('-i', '--ip', default='127.0.0.1', type=str, help='server IP')
+    parser.add_argument('-p', '--port', default=8080, type=int, help='server port IP')
     return parser
 
 

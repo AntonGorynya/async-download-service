@@ -55,7 +55,7 @@ async def archive(request, path='test_photos', delay=0):
     except LookupError:
         logging.debug('LookupError exception')
     finally:
-        # Интересует имеено None. тк 0 - штатное завершение.
+        # тк 0 - штатное завершение.
         if proc.returncode == None:
             proc.kill()
     return response

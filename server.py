@@ -17,8 +17,6 @@ def signal_handler():
 async def archive(request, path='test_photos', delay=0):
     chunk_size = 1 * 1024  # 1KB
     archive_hash = request.match_info.get('archive_hash')
-    if not archive_hash:
-        return web.HTTPNotFound(text='Не корректный хэш')
     command = ['zip', '-r', '-', '.']
     cwd = os.path.join(path, archive_hash)
 
@@ -55,7 +53,9 @@ async def archive(request, path='test_photos', delay=0):
     except LookupError:
         logging.debug('LookupError exception')
     finally:
-        # тк 0 - штатное завершение.
+        proc.terminate()
+        await proc.communicate()
+        # Интересует имеено None. тк 0 - штатное завершение.
         if proc.returncode == None:
             proc.kill()
     return response

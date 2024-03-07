@@ -55,8 +55,8 @@ async def archive(request, path='test_photos', delay=0):
     finally:
         proc.terminate()
         await proc.communicate()
-        # Интересует имеено None. тк 0 - штатное завершение.
-        if proc.returncode == None:
+        # тк 0 - штатное завершение.
+        if proc.returncode is None:
             proc.kill()
     return response
 
